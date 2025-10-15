@@ -6,6 +6,9 @@ Author: Fabian Voigt
 #TODO
 * Usage of amplitude is not consistent (peak-to-peak in single_pulse)
 """
+import sys
+#sys.path.append("C:\Users\hufna\Documents\Software\GalaxyCube\Galaxy-Cube-communication\python")
+#import sections
 
 #import nidaqmx
 # from nidaqmx.constants import AcquisitionType, TaskMode

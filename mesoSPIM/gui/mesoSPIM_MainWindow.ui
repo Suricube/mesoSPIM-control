@@ -3468,6 +3468,76 @@ Focus</string>
             </property>
            </widget>
           </widget>
+          <widget class="QWidget" name="GalaxyTabWidget">
+           <attribute name="title">
+            <string>Galaxy</string>
+           </attribute>
+           <widget class="QLineEdit" name="ipGalaxy">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="geometry">
+             <rect>
+              <x>10</x>
+              <y>10</y>
+              <width>171</width>
+              <height>41</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string>localhost</string>
+            </property>
+           </widget>
+           <widget class="QPushButton" name="connectGalaxyButton">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="geometry">
+             <rect>
+              <x>330</x>
+              <y>10</y>
+              <width>91</width>
+              <height>41</height>
+             </rect>
+            </property>
+            <property name="font">
+             <font>
+              <pointsize>14</pointsize>
+              <weight>50</weight>
+              <bold>false</bold>
+             </font>
+            </property>
+            <property name="text">
+             <string>connect</string>
+            </property>
+           </widget>
+           <widget class="QLineEdit" name="portGalaxy">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="geometry">
+             <rect>
+              <x>190</x>
+              <y>10</y>
+              <width>121</width>
+              <height>41</height>
+             </rect>
+            </property>
+            <property name="text">
+             <string>1883</string>
+            </property>
+           </widget>
+           <widget class="QTextBrowser" name="textBrowser">
+            <property name="geometry">
+             <rect>
+              <x>10</x>
+              <y>60</y>
+              <width>411</width>
+              <height>231</height>
+             </rect>
+            </property>
+           </widget>
+          </widget>
          </widget>
         </item>
        </layout>
