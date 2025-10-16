@@ -590,7 +590,7 @@ class mesoSPIM_WaveFormGenerator(QtCore.QObject):
                 secs.appendao(self.galvo_r_waveform)
 
                 """ digital sections for camera and stage"""
-                msg = Galaxy(DeviceTypes.device,"fff")
+                msg = Galaxy(DeviceTypes.device,"fff","ui/sections")
                 self.parent.parent.client.publishSignal.emit(msg.to_json(secs.to_payload(SecCommands.set)))
             case "Demo":
                 print("Demo mode: create_task") 
@@ -631,7 +631,7 @@ class mesoSPIM_WaveFormGenerator(QtCore.QObject):
                     self.galvo_etl_laser_task.start()
             case "Galaxy":
                 secs = sections.Sections(SecOperation.finite, 0)
-                msg = Galaxy(DeviceTypes.device,"fff")
+                msg = Galaxy(DeviceTypes.device,"fff","ui/sections")
                 self.parent.parent.client.publishSignal.emit(msg.to_json(secs.to_payload(SecCommands.start)))
                 pass
             case "Demo":
@@ -665,7 +665,7 @@ class mesoSPIM_WaveFormGenerator(QtCore.QObject):
                     self.stage_trigger_task.wait_until_done()
             case "Galaxy":
                 secs = sections.Sections(SecOperation.finite, 0)
-                msg = Galaxy(DeviceTypes.device,"fff")
+                msg = Galaxy(DeviceTypes.device,"fff","ui/sections",)
                 self.parent.parent.client.publishSignal.emit(msg.to_json(secs.to_payload(SecCommands.start)))
                 pass
             case "Demo":
@@ -687,7 +687,7 @@ class mesoSPIM_WaveFormGenerator(QtCore.QObject):
                 self.master_trigger_task.stop()
             case "Galaxy":
                 secs = sections.Sections(SecOperation.finite, 0)
-                msg = Galaxy(DeviceTypes.device,"fff")
+                msg = Galaxy(DeviceTypes.device,"fff","ui/sections")
                 self.parent.parent.client.publishSignal.emit(msg.to_json(secs.to_payload(SecCommands.stop)))
 
             case "Demo":

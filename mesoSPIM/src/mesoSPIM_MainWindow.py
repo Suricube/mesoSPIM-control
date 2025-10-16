@@ -7,6 +7,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.uic import loadUi
 
 import paho.mqtt.client as mqtt
+import json
 
 ''' Disabled taskbar button progress display due to problems with Anaconda default'''
 # if sys.platform == 'win32':
@@ -153,7 +154,7 @@ class MqttClient(QtCore.QObject):
     @protocolVersion.setter
     def protocolVersion(self, protocolVersion):
         if self.m_protocolVersion == protocolVersion: return
-        if protocolVersion in (MqttClient.MQTT_3_1, MQTT_3_1_1):
+        if protocolVersion in (MqttClient.MQTT_3_1, MqttClient.MQTT_3_1_1):
             self.m_protocolVersion = protocolVersion
             self.protocolVersionChanged.emit(protocolVersion)
 
@@ -276,7 +277,7 @@ class mesoSPIM_MainWindow(QtWidgets.QMainWindow):
 
         self.client.hostname = "localhost"
         self.client.connectToHost()
-        self.client.publishSignal.emit("mesoSPIM connected")
+        self.client.publishSignal.emit("{\"type\":\"system\",\"topic\":\"ui\",\"name\":\"none\",\"payload\":\"{}\"}")
 
         # Setting up the threads
         logger.debug('Ideal thread count: '+str(int(QtCore.QThread.idealThreadCount())))
@@ -344,13 +345,19 @@ class mesoSPIM_MainWindow(QtWidgets.QMainWindow):
     @QtCore.pyqtSlot(str)
     def on_messageSignal(self, msg):
         print("on_messageSignal"+msg)
-        self.client.m_client.publish("ui", "dddddd")
         self.textBrowser.setText(msg)
 
     @QtCore.pyqtSlot(str)
     def on_publishSignal(self, msg):
-        print("on_messageSignal"+msg)
-        result = self.client.m_client.publish("ui", msg)
+        #print("on_messageSignal"+msg)
+        jsonstr = json.loads(msg)
+        try:
+            topic = jsonstr["topic"]
+            if type(topic) == str:
+                result = self.client.m_client.publish(topic, msg)
+        except:
+            print("no topic found in mqqt json")
+
     ''' MQTT slot end'''
 
 

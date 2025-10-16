@@ -536,7 +536,6 @@ class mesoSPIM_Core(QtCore.QObject):
             self.laserenabler.enable(laser)
         self.waveformer.start_tasks()
         self.waveformer.run_tasks()
-        self.parent.client.publishSignal.emit("snap_image")
         if laser_blanking:
             self.laserenabler.disable_all()
         self.waveformer.stop_tasks()
