@@ -15,8 +15,11 @@ from nidaqmx.constants import AcquisitionType, TaskMode
 from nidaqmx.constants import LineGrouping, DigitalWidthUnits
 from nidaqmx.types import CtrTime
 
+''' Galaxy '''
+from galaxy import DeviceTypes, sections, Galaxy, SecOperation, SecCommands
+
 '''mesoSPIM imports'''
-from .utils.waveforms import single_pulse, tunable_lens_ramp, sawtooth, square
+from .utils.waveforms import single_pulse, tunable_lens_ramp, sawtooth, single_pulse_galaxy, tunable_lens_ramp_galaxy, sawtooth_galaxy
 from .utils.utility_functions import log_cpu_core
 
 from PyQt5 import QtCore
@@ -161,30 +164,66 @@ class mesoSPIM_WaveFormGenerator(QtCore.QObject):
         etl_r_delay, etl_r_ramp_rising, etl_r_ramp_falling, etl_r_amplitude, etl_r_offset = \
             self.state.get_parameter_list(['etl_r_delay_%', 'etl_r_ramp_rising_%', 'etl_r_ramp_falling_%', 'etl_r_amplitude', 'etl_r_offset'])
 
-        self.etl_l_waveform = tunable_lens_ramp(samplerate = samplerate,
-                                                sweeptime = sweeptime,
-                                                delay = etl_l_delay,
-                                                rise = etl_l_ramp_rising,
-                                                fall = etl_l_ramp_falling,
-                                                amplitude = etl_l_amplitude,
-                                                offset = etl_l_offset)
+        match self.cfg.waveformgeneration:
+            case "NI":
+                self.etl_l_waveform = tunable_lens_ramp(samplerate = samplerate,
+                                                        sweeptime = sweeptime,
+                                                        delay = etl_l_delay,
+                                                        rise = etl_l_ramp_rising,
+                                                        fall = etl_l_ramp_falling,
+                                                        amplitude = etl_l_amplitude,
+                                                        offset = etl_l_offset)
 
-        self.etl_r_waveform = tunable_lens_ramp(samplerate = samplerate,
-                                                sweeptime = sweeptime,
-                                                delay = etl_r_delay,
-                                                rise = etl_r_ramp_rising,
-                                                fall = etl_r_ramp_falling,
-                                                amplitude = etl_r_amplitude,
-                                                offset = etl_r_offset)
-        # freeze AO channel which is not in use, to reduce heating and increase ETL lifetime
-        if self.state['shutterconfig'] == 'Left':
-            self.etl_r_waveform[:] = etl_r_offset
-            logger.debug("Right arm frozen")
-        elif self.state['shutterconfig'] == 'Right':
-            self.etl_l_waveform[:] = etl_l_offset
-            logger.debug("Left arm frozen")
-        else:
-            pass
+                self.etl_r_waveform = tunable_lens_ramp(samplerate = samplerate,
+                                                        sweeptime = sweeptime,
+                                                        delay = etl_r_delay,
+                                                        rise = etl_r_ramp_rising,
+                                                        fall = etl_r_ramp_falling,
+                                                        amplitude = etl_r_amplitude,
+                                                        offset = etl_r_offset)
+                # freeze AO channel which is not in use, to reduce heating and increase ETL lifetime
+                if self.state['shutterconfig'] == 'Left':
+                    self.etl_r_waveform[:] = etl_r_offset
+                    logger.debug("Right arm frozen")
+                elif self.state['shutterconfig'] == 'Right':
+                    self.etl_l_waveform[:] = etl_l_offset
+                    logger.debug("Left arm frozen")
+                else:
+                    pass
+            case "Galaxy":
+
+                # freeze AO channel which is not in use, to reduce heating and increase ETL lifetime
+                if self.state['shutterconfig'] == 'Left':
+                    etl_r_amplitude = 0.
+                    logger.debug("Right arm frozen")
+                elif self.state['shutterconfig'] == 'Right':
+                    etl_l_amplitude = 0.
+                    logger.debug("Left arm frozen")
+                else:
+                    pass
+
+                self.etl_l_waveform = tunable_lens_ramp_galaxy(samplerate = samplerate,
+                                                        sweeptime = sweeptime,
+                                                        delay = etl_l_delay,
+                                                        rise = etl_l_ramp_rising,
+                                                        fall = etl_l_ramp_falling,
+                                                        amplitude = etl_l_amplitude,
+                                                        offset = etl_l_offset,
+                                                        name="ao0",
+                                                        port=0)
+
+                self.etl_r_waveform = tunable_lens_ramp_galaxy(samplerate = samplerate,
+                                                        sweeptime = sweeptime,
+                                                        delay = etl_r_delay,
+                                                        rise = etl_r_ramp_rising,
+                                                        fall = etl_r_ramp_falling,
+                                                        amplitude = etl_r_amplitude,
+                                                        offset = etl_r_offset,
+                                                        name="ao1",
+                                                        port=1)
+            case _: # demo mode
+                print("demo mode: create_etl_waveforms")
+
 
     def create_galvo_waveforms(self):
         samplerate, sweeptime = self.state.get_parameter_list(['samplerate','sweeptime'])
@@ -199,29 +238,62 @@ class mesoSPIM_WaveFormGenerator(QtCore.QObject):
         galvo_r_amplitude = galvo_l_amplitude # always use same amplitude for both galvos
 
         '''Create Galvo waveforms:'''
-        self.galvo_l_waveform = sawtooth(samplerate = samplerate,
-                                         sweeptime = sweeptime,
-                                         frequency = galvo_l_frequency,
-                                         amplitude = galvo_l_amplitude,
-                                         offset = galvo_l_offset,
-                                         dutycycle = galvo_l_duty_cycle,
-                                         phase = galvo_l_phase)
 
-        self.galvo_r_waveform = sawtooth(samplerate = samplerate,
-                                         sweeptime = sweeptime,
-                                         frequency = galvo_r_frequency,
-                                         amplitude = galvo_r_amplitude,
-                                         offset = galvo_r_offset,
-                                         dutycycle = galvo_r_duty_cycle,
-                                         phase = galvo_r_phase)
+        match self.cfg.waveformgeneration:
+            case "NI":
+                self.galvo_l_waveform = sawtooth(samplerate = samplerate,
+                                                sweeptime = sweeptime,
+                                                frequency = galvo_l_frequency,
+                                                amplitude = galvo_l_amplitude,
+                                                offset = galvo_l_offset,
+                                                dutycycle = galvo_l_duty_cycle,
+                                                phase = galvo_l_phase)
 
-        # freeze AO channel which is not in use, to reduce heating and increase galvo lifetime
-        if self.state['shutterconfig'] == 'Left':
-            self.galvo_r_waveform[:] = galvo_r_offset
-        elif self.state['shutterconfig'] == 'Right':
-            self.galvo_l_waveform[:] = galvo_l_offset
-        else:
-            pass
+                self.galvo_r_waveform = sawtooth(samplerate = samplerate,
+                                                sweeptime = sweeptime,
+                                                frequency = galvo_r_frequency,
+                                                amplitude = galvo_r_amplitude,
+                                                offset = galvo_r_offset,
+                                                dutycycle = galvo_r_duty_cycle,
+                                                phase = galvo_r_phase)
+
+                # freeze AO channel which is not in use, to reduce heating and increase galvo lifetime
+                if self.state['shutterconfig'] == 'Left':
+                    self.galvo_r_waveform[:] = galvo_r_offset
+                elif self.state['shutterconfig'] == 'Right':
+                    self.galvo_l_waveform[:] = galvo_l_offset
+                else:
+                    pass
+            case "Galaxy":
+                # freeze AO channel which is not in use, to reduce heating and increase galvo lifetime
+                if self.state['shutterconfig'] == 'Left':
+                    galvo_r_amplitude = 0.
+                elif self.state['shutterconfig'] == 'Right':
+                    galvo_l_amplitude = 0.
+                else:
+                    pass
+                self.galvo_l_waveform = sawtooth_galaxy(samplerate = samplerate,
+                                                sweeptime = sweeptime,
+                                                frequency = galvo_l_frequency,
+                                                amplitude = galvo_l_amplitude,
+                                                offset = galvo_l_offset,
+                                                dutycycle = galvo_l_duty_cycle,
+                                                phase = galvo_l_phase,
+                                                name = "ao4",
+                                                port = 4)
+
+                self.galvo_r_waveform = sawtooth_galaxy(samplerate = samplerate,
+                                                sweeptime = sweeptime,
+                                                frequency = galvo_r_frequency,
+                                                amplitude = galvo_r_amplitude,
+                                                offset = galvo_r_offset,
+                                                dutycycle = galvo_r_duty_cycle,
+                                                phase = galvo_r_phase,
+                                                name = "ao5",
+                                                port = 5)
+            case "Demo":
+                print("Demo mode: create_galvo_waveforms")    
+
 
     def create_laser_waveforms(self):
         samplerate, sweeptime = self.state.get_parameter_list(['samplerate','sweeptime'])
@@ -239,30 +311,52 @@ class mesoSPIM_WaveFormGenerator(QtCore.QObject):
         ''' Conversion from % to V of the intensity:'''
         laser_voltage = max_laser_voltage * intensity / 100
 
-        self.laser_template_waveform = single_pulse(samplerate = samplerate,
-                                                    sweeptime = sweeptime,
-                                                    delay = laser_l_delay,
-                                                    pulsewidth = laser_l_pulse,
-                                                    amplitude = laser_voltage,
-                                                    offset = 0)
+        match self.cfg.waveformgeneration:
+            case "NI":
+                self.laser_template_waveform = single_pulse(samplerate = samplerate,
+                                                            sweeptime = sweeptime,
+                                                            delay = laser_l_delay,
+                                                            pulsewidth = laser_l_pulse,
+                                                            amplitude = laser_voltage,
+                                                            offset = 0)
 
-        '''The key: replace the waveform in the waveform list with this new template'''
-        assert sorted(list(self.cfg.laserdict.keys())) == list(self.cfg.laserdict.keys()), f"Error: laserdict keys in config file must be alphanumerically sorted: {self.cfg.laserdict.keys()}"
-        current_laser_index = sorted(list(self.cfg.laserdict.keys())).index(self.state['laser'])
-        self.laser_waveform_list[current_laser_index] = self.laser_template_waveform
-        self.laser_waveforms = np.stack(self.laser_waveform_list)
+                '''The key: replace the waveform in the waveform list with this new template'''
+                assert sorted(list(self.cfg.laserdict.keys())) == list(self.cfg.laserdict.keys()), f"Error: laserdict keys in config file must be alphanumerically sorted: {self.cfg.laserdict.keys()}"
+                current_laser_index = sorted(list(self.cfg.laserdict.keys())).index(self.state['laser'])
+                self.laser_waveform_list[current_laser_index] = self.laser_template_waveform
+                self.laser_waveforms = np.stack(self.laser_waveform_list)
+            case "Galaxy":
+                self.laser_template_waveform = single_pulse_galaxy(samplerate = samplerate,
+                                                            sweeptime = sweeptime,
+                                                            delay = laser_l_delay,
+                                                            pulsewidth = laser_l_pulse,
+                                                            amplitude = laser_voltage,
+                                                            offset = 0,
+                                                            name = "ao2",
+                                                            port = 2)
+            case "Demo":
+                print("Demo mode: create_laser_waveforms")
 
     def bundle_galvo_and_etl_waveforms(self):
-        """ Stacks the Galvo and ETL waveforms into a numpy array adequate for
-        the NI cards.
 
-        In here, the assignment of output channels of the Galvo / ETL card to the
-        corresponding output channel is hardcoded: This could be improved.
-        """
-        self.galvo_and_etl_waveforms = np.stack((self.galvo_l_waveform,
-                                                 self.galvo_r_waveform,
-                                                 self.etl_l_waveform,
-                                                 self.etl_r_waveform))
+        match self.cfg.waveformgeneration:
+            case "NI":
+                """ Stacks the Galvo and ETL waveforms into a numpy array adequate for the NI cards.
+
+                In here, the assignment of output channels of the Galvo / ETL card to the
+                corresponding output channel is hardcoded: This could be improved.
+                """
+                self.galvo_and_etl_waveforms = np.stack((self.galvo_l_waveform,
+                                                        self.galvo_r_waveform,
+                                                        self.etl_l_waveform,
+                                                        self.etl_r_waveform))
+            case "Galaxy":
+                """ Combine sections"""
+                pass
+            case _:
+                """ Demo mode"""
+                print("Demo mode: bundle_galvo_and_etl_waveforms")
+
 
     def update_etl_parameters_from_zoom(self, zoom):
         """ Little helper method: Because the mesoSPIM core is not handling
@@ -401,164 +495,224 @@ class mesoSPIM_WaveFormGenerator(QtCore.QObject):
           can only run only 1 AO hardware-timed task at a time (https://knowledge.ni.com/KnowledgeArticleDetails?id=kA00Z0000019KWYSA2&l=en-CH)
         """
         ah = self.cfg.acquisition_hardware
+        match self.cfg.waveformgeneration:
+            case "NI": 
+                self.calculate_samples()
+                samplerate, sweeptime = self.state.get_parameter_list(['samplerate','sweeptime'])
+                samples = self.samples
+                camera_pulse_percent, camera_delay_percent = self.state.get_parameter_list(['camera_pulse_%','camera_delay_%'])
+                self.master_trigger_task = nidaqmx.Task()
+                self.camera_trigger_task = nidaqmx.Task()
+                if self.cfg.stage_parameters['stage_type'] in {'TigerASI'}:
+                    self.stage_trigger_task = nidaqmx.Task()
 
-        self.calculate_samples()
-        samplerate, sweeptime = self.state.get_parameter_list(['samplerate','sweeptime'])
-        samples = self.samples
-        camera_pulse_percent, camera_delay_percent = self.state.get_parameter_list(['camera_pulse_%','camera_delay_%'])
-        self.master_trigger_task = nidaqmx.Task()
-        self.camera_trigger_task = nidaqmx.Task()
-        if self.cfg.stage_parameters['stage_type'] in {'TigerASI'}:
-            self.stage_trigger_task = nidaqmx.Task()
+                # Check if 1 or 2 DAQ cards are used for AO waveform generation
+                self.ao_cards = 1 if ah['galvo_etl_task_line'].split('/')[-2] == ah['laser_task_line'].split('/')[-2] else 2
+                logger.info(f"Using {self.ao_cards} DAQmx card(s) for AO waveform generation.")
 
-        # Check if 1 or 2 DAQ cards are used for AO waveform generation
-        self.ao_cards = 1 if ah['galvo_etl_task_line'].split('/')[-2] == ah['laser_task_line'].split('/')[-2] else 2
-        logger.info(f"Using {self.ao_cards} DAQmx card(s) for AO waveform generation.")
+                if self.ao_cards == 1:
+                    # These AO tasks than must be bundled into one task if a single DAQmx card is used (e.g. PXI-6733)
+                    self.galvo_etl_laser_task = nidaqmx.Task()
+                else:
+                    self.galvo_etl_task = nidaqmx.Task()
+                    self.laser_task = nidaqmx.Task()
 
-        if self.ao_cards == 1:
-            # These AO tasks than must be bundled into one task if a single DAQmx card is used (e.g. PXI-6733)
-            self.galvo_etl_laser_task = nidaqmx.Task()
-        else:
-            self.galvo_etl_task = nidaqmx.Task()
-            self.laser_task = nidaqmx.Task()
+                '''Housekeeping: Setting up the DO master trigger task'''
+                self.master_trigger_task.do_channels.add_do_chan(ah['master_trigger_out_line'],
+                                                                line_grouping=LineGrouping.CHAN_FOR_ALL_LINES)
+                #self.master_trigger_task.control(TaskMode.TASK_RESERVE) # cDAQ requirement
 
-        '''Housekeeping: Setting up the DO master trigger task'''
-        self.master_trigger_task.do_channels.add_do_chan(ah['master_trigger_out_line'],
-                                                         line_grouping=LineGrouping.CHAN_FOR_ALL_LINES)
-        #self.master_trigger_task.control(TaskMode.TASK_RESERVE) # cDAQ requirement
+                '''Calculate camera high time and initial delay:
+                Disadvantage: high time and delay can only be set after a task has been created
+                '''
+                self.camera_high_time = camera_pulse_percent*0.01*sweeptime
+                self.camera_delay = camera_delay_percent*0.01*sweeptime
 
-        '''Calculate camera high time and initial delay:
-        Disadvantage: high time and delay can only be set after a task has been created
-        '''
-        self.camera_high_time = camera_pulse_percent*0.01*sweeptime
-        self.camera_delay = camera_delay_percent*0.01*sweeptime
+                '''Housekeeping: Setting up the counter task for the camera trigger'''
+                self.camera_trigger_task.co_channels.add_co_pulse_chan_time(ah['camera_trigger_out_line'],
+                                                                            high_time=self.camera_high_time,
+                                                                            initial_delay=self.camera_delay)
 
-        '''Housekeeping: Setting up the counter task for the camera trigger'''
-        self.camera_trigger_task.co_channels.add_co_pulse_chan_time(ah['camera_trigger_out_line'],
-                                                                    high_time=self.camera_high_time,
-                                                                    initial_delay=self.camera_delay)
+                self.camera_trigger_task.triggers.start_trigger.cfg_dig_edge_start_trig(ah['camera_trigger_source'])
+                #self.camera_trigger_task.control(TaskMode.TASK_RESERVE) # cDAQ requirement
 
-        self.camera_trigger_task.triggers.start_trigger.cfg_dig_edge_start_trig(ah['camera_trigger_source'])
-        #self.camera_trigger_task.control(TaskMode.TASK_RESERVE) # cDAQ requirement
+                '''Housekeeping: Setting up the counter task for the stage TTL trigger for certain stages'''
+                if self.cfg.stage_parameters['stage_type'] in {'TigerASI'}:
+                    assert hasattr(self.cfg, 'asi_parameters'), "Config file with stage 'TigerASI' must contain 'asi_parameters' dictionary"
+                    trig_line = self.parent.read_config_parameter('stage_trigger_out_line', self.cfg.asi_parameters)
+                    trig_source = self.parent.read_config_parameter('stage_trigger_source', self.cfg.asi_parameters)
+                    stage_trigger_pulse_percent = self.parent.read_config_parameter('stage_trigger_pulse_%', self.cfg.asi_parameters)
+                    stage_delay_percent = self.parent.read_config_parameter('stage_trigger_delay_%', self.cfg.asi_parameters)
+                    stage_high_time = stage_trigger_pulse_percent * 0.01 * sweeptime
+                    stage_delay = stage_delay_percent * 0.01 * sweeptime
+                    self.stage_trigger_task.co_channels.add_co_pulse_chan_time(trig_line, high_time=stage_high_time, initial_delay=stage_delay)
+                    self.stage_trigger_task.triggers.start_trigger.cfg_dig_edge_start_trig(trig_source)
+                    #self.stage_trigger_task.control(TaskMode.TASK_RESERVE) # cDAQ requirement
 
-        '''Housekeeping: Setting up the counter task for the stage TTL trigger for certain stages'''
-        if self.cfg.stage_parameters['stage_type'] in {'TigerASI'}:
-            assert hasattr(self.cfg, 'asi_parameters'), "Config file with stage 'TigerASI' must contain 'asi_parameters' dictionary"
-            trig_line = self.parent.read_config_parameter('stage_trigger_out_line', self.cfg.asi_parameters)
-            trig_source = self.parent.read_config_parameter('stage_trigger_source', self.cfg.asi_parameters)
-            stage_trigger_pulse_percent = self.parent.read_config_parameter('stage_trigger_pulse_%', self.cfg.asi_parameters)
-            stage_delay_percent = self.parent.read_config_parameter('stage_trigger_delay_%', self.cfg.asi_parameters)
-            stage_high_time = stage_trigger_pulse_percent * 0.01 * sweeptime
-            stage_delay = stage_delay_percent * 0.01 * sweeptime
-            self.stage_trigger_task.co_channels.add_co_pulse_chan_time(trig_line, high_time=stage_high_time, initial_delay=stage_delay)
-            self.stage_trigger_task.triggers.start_trigger.cfg_dig_edge_start_trig(trig_source)
-            #self.stage_trigger_task.control(TaskMode.TASK_RESERVE) # cDAQ requirement
+                '''Housekeeping: Setting up the AO task for the Galvo and setting the trigger input'''
+                if self.ao_cards == 2: # default mesoSPIM v5 configuration
+                    self.galvo_etl_task.ao_channels.add_ao_voltage_chan(ah['galvo_etl_task_line'], min_val = -self.MAX_GALVO_ETL_VOLT, max_val = self.MAX_GALVO_ETL_VOLT)
+                    self.galvo_etl_task.timing.cfg_samp_clk_timing(rate=samplerate,
+                                                            sample_mode=AcquisitionType.FINITE,
+                                                            samps_per_chan=samples)
+                    self.galvo_etl_task.triggers.start_trigger.cfg_dig_edge_start_trig(ah['galvo_etl_task_trigger_source'])
+                    #self.galvo_etl_task.control(TaskMode.TASK_RESERVE) # cDAQ requirement
 
-        '''Housekeeping: Setting up the AO task for the Galvo and setting the trigger input'''
-        if self.ao_cards == 2: # default mesoSPIM v5 configuration
-            self.galvo_etl_task.ao_channels.add_ao_voltage_chan(ah['galvo_etl_task_line'], min_val = -self.MAX_GALVO_ETL_VOLT, max_val = self.MAX_GALVO_ETL_VOLT)
-            self.galvo_etl_task.timing.cfg_samp_clk_timing(rate=samplerate,
-                                                       sample_mode=AcquisitionType.FINITE,
-                                                       samps_per_chan=samples)
-            self.galvo_etl_task.triggers.start_trigger.cfg_dig_edge_start_trig(ah['galvo_etl_task_trigger_source'])
-            #self.galvo_etl_task.control(TaskMode.TASK_RESERVE) # cDAQ requirement
+                    '''Housekeeping: Setting up the AO task for the ETL and lasers and setting the trigger input'''
+                    self.laser_task.ao_channels.add_ao_voltage_chan(ah['laser_task_line'],
+                                                                    min_val=-self.state['max_laser_voltage'],
+                                                                    max_val=self.state['max_laser_voltage'])
+                    self.laser_task.timing.cfg_samp_clk_timing(rate=samplerate,
+                                                                sample_mode=AcquisitionType.FINITE,
+                                                                samps_per_chan=samples)
+                    self.laser_task.triggers.start_trigger.cfg_dig_edge_start_trig(ah['laser_task_trigger_source'])
+                    #self.laser_task.control(TaskMode.TASK_RESERVE) # cDAQ requirement
 
-            '''Housekeeping: Setting up the AO task for the ETL and lasers and setting the trigger input'''
-            self.laser_task.ao_channels.add_ao_voltage_chan(ah['laser_task_line'],
-                                                            min_val=-self.state['max_laser_voltage'],
-                                                            max_val=self.state['max_laser_voltage'])
-            self.laser_task.timing.cfg_samp_clk_timing(rate=samplerate,
-                                                        sample_mode=AcquisitionType.FINITE,
-                                                        samps_per_chan=samples)
-            self.laser_task.triggers.start_trigger.cfg_dig_edge_start_trig(ah['laser_task_trigger_source'])
-            #self.laser_task.control(TaskMode.TASK_RESERVE) # cDAQ requirement
+                else: # Benchtop single-card PXI NI-6733 or cDAQ NI-9264 configuration
+                    self.galvo_etl_laser_task.ao_channels.add_ao_voltage_chan(ah['galvo_etl_task_line'] + ',' + ah['laser_task_line'],
+                                                                            min_val = -self.MAX_GALVO_ETL_VOLT, max_val = self.MAX_GALVO_ETL_VOLT)
+                    self.galvo_etl_laser_task.timing.cfg_samp_clk_timing(rate=samplerate,
+                                                            sample_mode=AcquisitionType.FINITE,
+                                                            samps_per_chan=samples)
+                    self.galvo_etl_laser_task.triggers.start_trigger.cfg_dig_edge_start_trig(ah['galvo_etl_task_trigger_source'])
+                    #self.galvo_etl_laser_task.control(TaskMode.TASK_RESERVE) # cDAQ requirement
+            case "Galaxy":
+                self.calculate_samples()
+                samplerate, sweeptime = self.state.get_parameter_list(['samplerate','sweeptime'])
+                samples = self.samples
+                camera_pulse_percent, camera_delay_percent = self.state.get_parameter_list(['camera_pulse_%','camera_delay_%'])
 
-        else: # Benchtop single-card PXI NI-6733 or cDAQ NI-9264 configuration
-            self.galvo_etl_laser_task.ao_channels.add_ao_voltage_chan(ah['galvo_etl_task_line'] + ',' + ah['laser_task_line'],
-                                                                      min_val = -self.MAX_GALVO_ETL_VOLT, max_val = self.MAX_GALVO_ETL_VOLT)
-            self.galvo_etl_laser_task.timing.cfg_samp_clk_timing(rate=samplerate,
-                                                       sample_mode=AcquisitionType.FINITE,
-                                                       samps_per_chan=samples)
-            self.galvo_etl_laser_task.triggers.start_trigger.cfg_dig_edge_start_trig(ah['galvo_etl_task_trigger_source'])
-            #self.galvo_etl_laser_task.control(TaskMode.TASK_RESERVE) # cDAQ requirement
+                """ analog sections for etl, galvos and lasers"""
+                secs = sections.Sections(SecOperation.finite, samples)
+                secs.appendao(self.etl_l_waveform)
+                secs.appendao(self.etl_r_waveform)
+                secs.appendao(self.galvo_l_waveform)
+                secs.appendao(self.galvo_r_waveform)
+
+                """ digital sections for camera and stage"""
+                msg = Galaxy(DeviceTypes.device,"fff")
+                self.parent.parent.client.publishSignal.emit(msg.to_json(secs.to_payload(SecCommands.set)))
+            case "Demo":
+                print("Demo mode: create_task") 
 
     def write_waveforms_to_tasks(self):
-        """Write the waveforms to the slave tasks"""
-        if self.ao_cards == 2:
-            self.galvo_etl_task.write(self.galvo_and_etl_waveforms)
-            self.laser_task.write(self.laser_waveforms)
-        else:
-            logger.debug(f"Writing analog waveforms: self.galvo_and_etl_waveforms, min {self.galvo_and_etl_waveforms.min()}, max {self.galvo_and_etl_waveforms.max()}")
-            logger.debug(f"Writing analog waveforms: self.laser_waveforms, min {self.laser_waveforms.min()}, max {self.laser_waveforms.max()}")
-            self.galvo_etl_laser_task.write(np.vstack((self.galvo_and_etl_waveforms, self.laser_waveforms)))
+
+        match self.cfg.waveformgeneration:
+            case "NI": 
+                """Write the waveforms to the slave tasks"""
+                if self.ao_cards == 2:
+                    self.galvo_etl_task.write(self.galvo_and_etl_waveforms)
+                    self.laser_task.write(self.laser_waveforms)
+                else:
+                    logger.debug(f"Writing analog waveforms: self.galvo_and_etl_waveforms, min {self.galvo_and_etl_waveforms.min()}, max {self.galvo_and_etl_waveforms.max()}")
+                    logger.debug(f"Writing analog waveforms: self.laser_waveforms, min {self.laser_waveforms.min()}, max {self.laser_waveforms.max()}")
+                    self.galvo_etl_laser_task.write(np.vstack((self.galvo_and_etl_waveforms, self.laser_waveforms)))
+            case "Galaxy":
+                pass
+            case "Demo":
+                print("Demo mode: write_waveforms_to_tasks")
 
     def start_tasks(self):
-        """Starts the tasks for camera triggering and analog outputs
 
-        If the tasks are configured to be triggered, they won't output any
-        signals until run_tasks() is called.
-        """
-        self.camera_trigger_task.start()
-        if self.cfg.stage_parameters['stage_type'] in {'TigerASI'}:
-            self.stage_trigger_task.start()
-        if self.ao_cards == 2:
-            self.galvo_etl_task.start()
-            self.laser_task.start()
-        else:
-            self.galvo_etl_laser_task.start()
+        match self.cfg.waveformgeneration:
+            case "NI": 
+                """Starts the tasks for camera triggering and analog outputs
+
+                If the tasks are configured to be triggered, they won't output any
+                signals until run_tasks() is called.
+                """
+                self.camera_trigger_task.start()
+                if self.cfg.stage_parameters['stage_type'] in {'TigerASI'}:
+                    self.stage_trigger_task.start()
+                if self.ao_cards == 2:
+                    self.galvo_etl_task.start()
+                    self.laser_task.start()
+                else:
+                    self.galvo_etl_laser_task.start()
+            case "Galaxy":
+                secs = sections.Sections(SecOperation.finite, 0)
+                msg = Galaxy(DeviceTypes.device,"fff")
+                self.parent.parent.client.publishSignal.emit(msg.to_json(secs.to_payload(SecCommands.start)))
+                pass
+            case "Demo":
+                print("Demo mode: write_waveforms_to_tasks")
 
     def run_tasks(self):
-        """Runs the tasks for triggering, analog and counter outputs
+        match self.cfg.waveformgeneration:
+            case "NI": 
+                """Runs the tasks for triggering, analog and counter outputs
 
-        Firstly, the master trigger triggers all other task via a shared trigger
-        line (PFI line as given in the config file).
+                Firstly, the master trigger triggers all other task via a shared trigger
+                line (PFI line as given in the config file).
 
-        For this to work, all analog output and counter tasks have to be started so
-        that they are waiting for the trigger signal.
+                For this to work, all analog output and counter tasks have to be started so
+                that they are waiting for the trigger signal.
 
-        Warning: `master_trigger_task` does not have explicit sample rate, because some cards like NI-6733 do not support this for DO lines.
-        So the master pulse duration varies depening on the device. Can be as short as small as 1 micro-second!
-        """
-        logger.debug("Starting master trigger")
-        self.master_trigger_task.write([False, True, True, True, True, True, False], auto_start=True)
+                Warning: `master_trigger_task` does not have explicit sample rate, because some cards like NI-6733 do not support this for DO lines.
+                So the master pulse duration varies depening on the device. Can be as short as small as 1 micro-second!
+                """
+                logger.debug("Starting master trigger")
+                self.master_trigger_task.write([False, True, True, True, True, True, False], auto_start=True)
 
-        '''Wait until everything is done - this is effectively a sleep function.'''
-        if self.ao_cards == 2:
-            self.galvo_etl_task.wait_until_done()
-            self.laser_task.wait_until_done()
-        else:
-            self.galvo_etl_laser_task.wait_until_done()
-        self.camera_trigger_task.wait_until_done()
-        if self.cfg.stage_parameters['stage_type'] in {'TigerASI'}:
-            self.stage_trigger_task.wait_until_done()
+                '''Wait until everything is done - this is effectively a sleep function.'''
+                if self.ao_cards == 2:
+                    self.galvo_etl_task.wait_until_done()
+                    self.laser_task.wait_until_done()
+                else:
+                    self.galvo_etl_laser_task.wait_until_done()
+                self.camera_trigger_task.wait_until_done()
+                if self.cfg.stage_parameters['stage_type'] in {'TigerASI'}:
+                    self.stage_trigger_task.wait_until_done()
+            case "Galaxy":
+                secs = sections.Sections(SecOperation.finite, 0)
+                msg = Galaxy(DeviceTypes.device,"fff")
+                self.parent.parent.client.publishSignal.emit(msg.to_json(secs.to_payload(SecCommands.start)))
+                pass
+            case "Demo":
+                print("Demo mode: write_waveforms_to_tasks")
 
     def stop_tasks(self):
-        """Stops the tasks for triggering, analog and counter outputs"""
-        logger.debug("Stopping tasks")
-        if self.ao_cards == 2:
-            self.galvo_etl_task.stop()
-            self.laser_task.stop()
-        else:
-            self.galvo_etl_laser_task.stop()
-        self.camera_trigger_task.stop()
-        if self.cfg.stage_parameters['stage_type'] in {'TigerASI'}:
-            self.stage_trigger_task.stop()
-        self.master_trigger_task.stop()
+        match self.cfg.waveformgeneration:
+            case "NI": 
+                """Stops the tasks for triggering, analog and counter outputs"""
+                logger.debug("Stopping tasks")
+                if self.ao_cards == 2:
+                    self.galvo_etl_task.stop()
+                    self.laser_task.stop()
+                else:
+                    self.galvo_etl_laser_task.stop()
+                self.camera_trigger_task.stop()
+                if self.cfg.stage_parameters['stage_type'] in {'TigerASI'}:
+                    self.stage_trigger_task.stop()
+                self.master_trigger_task.stop()
+            case "Galaxy":
+                secs = sections.Sections(SecOperation.finite, 0)
+                msg = Galaxy(DeviceTypes.device,"fff")
+                self.parent.parent.client.publishSignal.emit(msg.to_json(secs.to_payload(SecCommands.stop)))
+
+            case "Demo":
+                print("Demo mode: write_waveforms_to_tasks")
 
     def close_tasks(self):
-        """Closes the tasks for triggering, analog and counter outputs.
-        Tasks should only be closed are they are stopped.
-        """
-        logger.debug("Closing tasks")
-        if self.ao_cards == 2:
-            self.galvo_etl_task.close()
-            self.laser_task.close()
-        else:
-            self.galvo_etl_laser_task.close()
-        self.camera_trigger_task.close()
-        if self.cfg.stage_parameters['stage_type'] in {'TigerASI'}:
-            self.stage_trigger_task.close()
-        self.master_trigger_task.close()
+        match self.cfg.waveformgeneration:
+            case "NI": 
+                """Closes the tasks for triggering, analog and counter outputs.
+                Tasks should only be closed are they are stopped.
+                """
+                logger.debug("Closing tasks")
+                if self.ao_cards == 2:
+                    self.galvo_etl_task.close()
+                    self.laser_task.close()
+                else:
+                    self.galvo_etl_laser_task.close()
+                self.camera_trigger_task.close()
+                if self.cfg.stage_parameters['stage_type'] in {'TigerASI'}:
+                    self.stage_trigger_task.close()
+                self.master_trigger_task.close()
+            case "Galaxy":
+                pass
+            case "Demo":
+                print("Demo mode: write_waveforms_to_tasks")
 
 
 class mesoSPIM_DemoWaveFormGenerator(mesoSPIM_WaveFormGenerator):

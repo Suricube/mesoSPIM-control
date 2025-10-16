@@ -75,6 +75,7 @@ class MqttClient(QtCore.QObject):
     protocolVersionChanged = QtCore.pyqtSignal(int)
 
     messageSignal = QtCore.pyqtSignal(str)
+    publishSignal = QtCore.pyqtSignal(str)
 
     def __init__(self, parent=None):
         super(MqttClient, self).__init__(parent)
@@ -267,6 +268,16 @@ class mesoSPIM_MainWindow(QtWidgets.QMainWindow):
         self.acquisition_manager_window.sig_warning.connect(self.display_warning)
         self.acquisition_manager_window.sig_move_absolute.connect(self.sig_move_absolute.emit)
 
+        ''' MQTT '''
+        self.client = MqttClient(self)
+        self.client.stateChanged.connect(self.on_stateChanged)
+        self.client.messageSignal.connect(self.on_messageSignal)
+        self.client.publishSignal.connect(self.on_publishSignal)
+
+        self.client.hostname = "localhost"
+        self.client.connectToHost()
+        self.client.publishSignal.emit("mesoSPIM connected")
+
         # Setting up the threads
         logger.debug('Ideal thread count: '+str(int(QtCore.QThread.idealThreadCount())))
         self.core_thread = QtCore.QThread()
@@ -323,25 +334,23 @@ class mesoSPIM_MainWindow(QtWidgets.QMainWindow):
         self.acquisition_manager_window.mark_all_current_parameters() # initialize the first dummy raw with the current state
         self.joystick = mesoSPIM_JoystickHandler(self)
 
-        ''' MQTT '''
-        self.client = MqttClient(self)
-        self.client.stateChanged.connect(self.on_stateChanged)
-        self.client.messageSignal.connect(self.on_messageSignal)
-
-        self.client.hostname = "localhost"
-        self.client.connectToHost()
-
     ''' MQTT slots begin'''
     @QtCore.pyqtSlot(int)
     def on_stateChanged(self, state):
         print("MQTT state: {state}")
         if state == MqttClient.Connected:
-            self.client.subscribe("ui")
+            self.client.subscribe("galaxy")
 
     @QtCore.pyqtSlot(str)
     def on_messageSignal(self, msg):
         print("on_messageSignal"+msg)
+        self.client.m_client.publish("ui", "dddddd")
         self.textBrowser.setText(msg)
+
+    @QtCore.pyqtSlot(str)
+    def on_publishSignal(self, msg):
+        print("on_messageSignal"+msg)
+        result = self.client.m_client.publish("ui", msg)
     ''' MQTT slot end'''
 
 

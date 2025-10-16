@@ -31,7 +31,7 @@ logging_level = 'DEBUG' # 'DEBUG' for ultra-detailed, 'INFO' for general logging
 '''
 Waveform output for Galvos, ETLs etc.
 '''
-waveformgeneration = 'DemoWaveFormGeneration' # 'DemoWaveFormGeneration' or 'NI'
+waveformgeneration = 'Galaxy' # 'DemoWaveFormGeneration' or 'NI' or 'Galaxy'
 
 '''
 Card designations need to be the same as in NI MAX, if necessary, use NI MAX

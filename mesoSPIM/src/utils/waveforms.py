@@ -285,7 +285,7 @@ def square(
 
     return waveform
 
-def square(
+def square_galaxy(
     samplerate = 100000,    # in samples/second
     sweeptime = 0.4,        # in seconds
     frequency = 10,         # in Hz

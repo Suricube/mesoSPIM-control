@@ -159,7 +159,7 @@ class mesoSPIM_Core(QtCore.QObject):
         #self.serial_thread.start() # legacy
 
         ''' Setting waveform generation up '''
-        if self.cfg.waveformgeneration == 'NI':
+        if self.cfg.waveformgeneration == 'NI' or self.cfg.waveformgeneration == 'Galaxy' or self.cfg.waveformgeneration == 'Demo':
             self.waveformer = mesoSPIM_WaveFormGenerator(self)
         elif self.cfg.waveformgeneration == 'DemoWaveFormGeneration':
             self.waveformer = mesoSPIM_DemoWaveFormGenerator(self)
@@ -536,6 +536,7 @@ class mesoSPIM_Core(QtCore.QObject):
             self.laserenabler.enable(laser)
         self.waveformer.start_tasks()
         self.waveformer.run_tasks()
+        self.parent.client.publishSignal.emit("snap_image")
         if laser_blanking:
             self.laserenabler.disable_all()
         self.waveformer.stop_tasks()
