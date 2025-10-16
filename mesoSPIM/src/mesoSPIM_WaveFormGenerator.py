@@ -201,7 +201,7 @@ class mesoSPIM_WaveFormGenerator(QtCore.QObject):
                     logger.debug("Left arm frozen")
                 else:
                     pass
-
+                
                 self.etl_l_waveform = tunable_lens_ramp_galaxy(samplerate = samplerate,
                                                         sweeptime = sweeptime,
                                                         delay = etl_l_delay,
@@ -209,8 +209,8 @@ class mesoSPIM_WaveFormGenerator(QtCore.QObject):
                                                         fall = etl_l_ramp_falling,
                                                         amplitude = etl_l_amplitude,
                                                         offset = etl_l_offset,
-                                                        name="ao0",
-                                                        port=0)
+                                                        name="etl_l",
+                                                        port=self.cfg.galaxy_hardware['etl_l'])
 
                 self.etl_r_waveform = tunable_lens_ramp_galaxy(samplerate = samplerate,
                                                         sweeptime = sweeptime,
@@ -219,8 +219,8 @@ class mesoSPIM_WaveFormGenerator(QtCore.QObject):
                                                         fall = etl_r_ramp_falling,
                                                         amplitude = etl_r_amplitude,
                                                         offset = etl_r_offset,
-                                                        name="ao1",
-                                                        port=1)
+                                                        name="etl_r",
+                                                        port=self.cfg.galaxy_hardware['etl_l'])
             case _: # demo mode
                 print("demo mode: create_etl_waveforms")
 
@@ -279,8 +279,8 @@ class mesoSPIM_WaveFormGenerator(QtCore.QObject):
                                                 offset = galvo_l_offset,
                                                 dutycycle = galvo_l_duty_cycle,
                                                 phase = galvo_l_phase,
-                                                name = "ao4",
-                                                port = 4)
+                                                name = "galvo_l",
+                                                port = self.cfg.galaxy_hardware['galvo_l'])
 
                 self.galvo_r_waveform = sawtooth_galaxy(samplerate = samplerate,
                                                 sweeptime = sweeptime,
@@ -289,8 +289,8 @@ class mesoSPIM_WaveFormGenerator(QtCore.QObject):
                                                 offset = galvo_r_offset,
                                                 dutycycle = galvo_r_duty_cycle,
                                                 phase = galvo_r_phase,
-                                                name = "ao5",
-                                                port = 5)
+                                                name = "galvo_r",
+                                                port = self.cfg.galaxy_hardware['galvo_r'])
             case "Demo":
                 print("Demo mode: create_galvo_waveforms")    
 
@@ -332,8 +332,8 @@ class mesoSPIM_WaveFormGenerator(QtCore.QObject):
                                                             pulsewidth = laser_l_pulse,
                                                             amplitude = laser_voltage,
                                                             offset = 0,
-                                                            name = "ao2",
-                                                            port = 2)
+                                                            name = "laser_0ao",
+                                                            port = self.cfg.galaxy_hardware['laser_0ao'])
             case "Demo":
                 print("Demo mode: create_laser_waveforms")
 

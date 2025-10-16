@@ -55,6 +55,17 @@ acquisition_hardware = {'master_trigger_out_line' : 'PXI6259/port0/line1',
                         'laser_task_line' :  'PXI6733/ao0:3',
                         'laser_task_trigger_source' : '/PXI6259/PFI0'}
 
+galaxy_hardware = {
+    'galvo_l' : 0,
+    'galvo_r' : 1,
+    'etl_l'   : 2,
+    'etl_r'   : 3,
+    'laser_0ao' : 4,
+    'laser_0do' : 2,
+    'stage'   : 0,
+    'camera'  : 1,
+}
+
 sidepanel = 'Demo' #'Demo' or 'FarmSimulator', deprecated
 
 '''
