@@ -14,3 +14,4 @@ npy2bdv==1.0.8
 future==1.0.0
 matplotlib==3.9.2
 psutil>=7.0.0
+paho-mqtt>=2.1.0
