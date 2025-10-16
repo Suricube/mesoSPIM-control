@@ -6,9 +6,8 @@ Author: Fabian Voigt
 #TODO
 * Usage of amplitude is not consistent (peak-to-peak in single_pulse)
 """
-import sys
-#sys.path.append("C:\Users\hufna\Documents\Software\GalaxyCube\Galaxy-Cube-communication\python")
-#import sections
+
+from galaxy import *
 
 #import nidaqmx
 # from nidaqmx.constants import AcquisitionType, TaskMode
@@ -58,6 +57,48 @@ def single_pulse(
     # modify the array
     array[pulsedelaysamples:pulsesamples+pulsedelaysamples] = amplitude
     return np.array(array)
+
+def single_pulse_galaxy(
+    samplerate=100000,  # in samples/second
+    sweeptime=0.4,      # in seconds
+    delay=10,           # in percent
+    pulsewidth=1,       # in percent
+    amplitude=0,        # in volts
+    offset=0,            # in volts
+    name ="ao0",         # section name
+    port = 0            # section port
+    ):
+
+    '''
+    Returns galaxy analog sections of a single pulse
+
+    Used for creating TTL pulses out of analog outputs and laser intensity
+    pulses.
+
+    Units:
+    samplerate: Integer
+    sweeptime:  Seconds
+    delay:      Percent
+    pulsewidth: Percent
+    amplitude:  Volts
+    offset:     Volts
+
+    Examples:
+
+    typical_TTL_pulse = single_pulse(samplerate, sweeptime, 10, 1, 5, 0)
+    typical_laser_pulse = single_pulse(samplerate, sweeptime, 10, 80, 1.25, 0)
+    '''
+
+    # get an integer number of samples
+    samples = int(np.floor(np.multiply(samplerate, sweeptime)))
+    pulsedelaysamples = int(samples * delay * 0.01)
+    pulsesamples = int(samples * pulsewidth * 0.01)
+
+    secs = SectionsAO(name, port)
+    secs.append(SectionAO(offset,0.,0.,0.,pulsedelaysamples,SecOrder.constant))
+    secs.append(SectionAO(offset+amplitude,0.,0.,0.,pulsesamples,SecOrder.constant))
+    secs.append(SectionAO(offset,0.,0.,0.,samples-pulsedelaysamples-pulsesamples,SecOrder.constant))
+    return secs
 
 def tunable_lens_ramp(
     samplerate = 100000,    # in samples/second
@@ -113,6 +154,54 @@ def tunable_lens_ramp(
 
     return np.array(array)
 
+def tunable_lens_ramp_galaxy(
+    samplerate = 100000,    # in samples/second
+    sweeptime = 0.4,        # in seconds
+    delay = 7.5,            # in percent
+    rise = 85,              # in percent
+    fall = 2.5,             # in percent
+    amplitude = 0,          # in volts
+    offset = 0,             # in volts
+    name ="ao0",            # section name
+    port = 0                # section port
+    ):
+
+    '''
+    Returns analog sections for the ETL ramp
+
+    The waveform starts at offset and stays there for the delay period, then
+    rises linearly to 2x amplitude (amplitude here refers to 1/2 peak-to-peak)
+    and drops back down to the offset voltage during the fall period.
+
+    Switching from a left to right ETL ramp is possible by exchanging the
+    rise and fall periods.
+
+    Units of parameters
+    samplerate: Integer
+    sweeptime:  Seconds
+    delay:      Percent
+    rise:       Percent
+    fall:       Percent
+    amplitude:  Volts
+    offset:     Volts
+    '''
+
+    sum_perc = delay + rise + fall
+    assert sum_perc <= 100, ValueError(f"ETL Delay, Ramp rising and Ramp falling % amount to {sum_perc} %")
+    # get an integer number of samples
+    samples = int(np.floor(np.multiply(samplerate, sweeptime)))
+    risesamples = int(samples * rise * 0.01)
+    fallsamples = int(samples * fall * 0.01)
+    delaysamples = samples - risesamples-fallsamples #int(samples * delay * 0.01)
+
+    # three sections constant, linear, linear
+    secs = SectionsAO(name, port)
+    secs.append(SectionAO(offset-amplitude,0.,0.,0.,delaysamples,SecOrder.constant))
+    secs.append(SectionAO(offset-amplitude,0.,offset+amplitude,0.,delaysamples,SecOrder.linear))
+    secs.append(SectionAO(offset+amplitude,0.,offset-amplitude,0.,delaysamples,SecOrder.linear))
+
+    return secs
+
 def sawtooth(
     samplerate = 100000,    # in samples/second
     sweeptime = 0.4,        # in seconds
@@ -141,6 +230,37 @@ def sawtooth(
 
     return waveform
 
+def sawtooth_galaxy(
+    samplerate = 100000,    # in samples/second
+    sweeptime = 0.4,        # in seconds
+    frequency = 10,         # in Hz
+    amplitude = 0,          # in V
+    offset = 0,             # in V
+    dutycycle = 50,         # dutycycle in percent
+    phase = np.pi/2,        # in rad
+    name ="ao0",            # section name
+    port = 0,               # section port
+    ):
+    '''
+    Returns analog section of the sawtooth function
+
+    Used for creating the galvo signal.
+
+    Example:
+    galvosignal =  sawtooth(100000, 0.4, 199, 3.67, 0, 50, np.pi)
+    '''
+
+    samples =  int(samplerate*sweeptime)
+    samplesrise = int(samples * dutycycle * 0.01)
+    samplesfall = samples - samplesrise
+
+    # two sections linear, linear
+    secs = SectionsAO(name, port)
+    secs.append(SectionAO(offset-amplitude,0.,offset+amplitude,0.,samplesrise,SecOrder.linear))
+    secs.append(SectionAO(offset+amplitude,0.,offset-amplitude,0.,samplesfall,SecOrder.linear))
+
+    return secs
+
 def square(
     samplerate = 100000,    # in samples/second
     sweeptime = 0.4,        # in seconds
@@ -164,3 +284,30 @@ def square(
     waveform = amplitude * waveform + offset
 
     return waveform
+
+def square(
+    samplerate = 100000,    # in samples/second
+    sweeptime = 0.4,        # in seconds
+    frequency = 10,         # in Hz
+    amplitude = 0,          # in V
+    offset = 0,             # in V
+    dutycycle = 50,         # dutycycle in percent
+    phase = np.pi,          # in rad
+    name ="ao0",            # section name
+    port = 0,               # section port
+    ):
+    """
+    Returns a numpy array with a rectangular waveform
+    """
+
+    samples =  int(samplerate*sweeptime)
+    dutycycle = dutycycle/100       # the signal.square duty parameter has to be between 0 and 1
+    samplesrise = samples /2
+    samplesfall = samples /2
+
+    # two sections linear, linear
+    secs = SectionsAO(name, port)
+    secs.append(SectionAO(offset-amplitude,0.,offset+amplitude,0.,samplesrise,SecOrder.linear))
+    secs.append(SectionAO(offset+amplitude,0.,offset-amplitude,0.,samplesfall,SecOrder.linear))
+
+    return secs
